@@ -38,7 +38,7 @@ viewports = [
 ]
 
 PAGE_URL = "https://online.warrington.gov.uk/planning/index.html?fa=getApplication&id=211349"
-TWO_CAPTCHA_API_KEY = "3c1ad036010d9315f882b004d848e18f"
+TWO_CAPTCHA_API_KEY = "your_api_key"
 
 
 class Bcolors:
