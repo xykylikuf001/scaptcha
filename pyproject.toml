@@ -1,0 +1,44 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
+
+[tool.poetry]
+authors = ["Your name <you@example.com>"]
+description = ""
+name = "scaptcha"
+readme = "README.md"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+2captcha-python = "^1.2.1"
+blinker = "^1.6.2"
+brotli = "^1.0.9"
+h2 = "^4.1.0"
+hyperframe = "^6.0.1"
+jinja2 = "^3.1.2"
+kaitaistruct = "^0.10"
+loguru = "^0.7.0"
+psutil = "^5.9.5"
+pyopenssl = "^23.2.0"
+pyparsing = "^3.1.1"
+python = "^3.10"
+python-dotenv = "^1.0.0"
+undetected-chromedriver = "^3.5.3"
+wmi = {platform = 'win32', version = '*'}
+zstandard = "^0.21.0"
+fake-useragent = "1.1.3"
+[tool.poetry.group.dev.dependencies]
+faker = "^19.2.0"
+isort = "^5.12.0"
+mypy = "^1.4.1"
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.11.1"
+requests-mock = "^1.11.0"
+toml-sort = "^0.23.1"
+
+[tool.tomlsort]
+all = true
+ignore_case = true
+in_place = true
+no_header = true

@@ -1,0 +1,44 @@
+.idea/
+__pycache__/
+
+.env
+
+sqlite.db
+test_sqlite.db
+
+
+.venv
+
+# dirs
+media/
+
+
+proxies.txt
+GoodProxy.txt
+ProxyBackup.txt
+
+
+extension/proxy_*
+
+# sensitve files
+secrets.json
+config.json
+files/card.*
+files/cards.json
+files/data.*
+.hosts
+# scripts - temp
+restart-systemd-services.sh
+
+
+# log files
+*.log
+
+# selenium
+patched_drivers/
+chromedriver*
+version.txt
+
+
+# system files
+.DS_Store
