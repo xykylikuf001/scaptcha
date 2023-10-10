@@ -28,6 +28,66 @@ def grp(pat, txt):
     return r.group(0) if r else '&'
 
 
+def create_proxy_folder(proxy, folder_name):
+    proxy = proxy.replace('@', ':')
+    proxy = proxy.split(':')
+    manifest_json = """
+{
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "name": "Chrome Proxy",
+    "permissions": [
+        "proxy",
+        "tabs",
+        "unlimitedStorage",
+        "storage",
+        "<all_urls>",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "minimum_chrome_version":"22.0.0"
+}
+ """
+
+    background_js = """
+var config = {
+        mode: "fixed_servers",
+        rules: {
+        singleProxy: {
+            scheme: "http",
+            host: "%s",
+            port: parseInt("%s")
+        },
+        bypassList: ["localhost"]
+        }
+    };
+chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+function callbackFn(details) {
+    return {
+        authCredentials: {
+            username: "%s",
+            password: "%s"
+        }
+    };
+}
+chrome.webRequest.onAuthRequired.addListener(
+            callbackFn,
+            {urls: ["<all_urls>"]},
+            ['blocking']
+);
+""" % (proxy[2], proxy[-1], proxy[0], proxy[1])
+
+    os.makedirs(folder_name, exist_ok=True)
+    with open(os.path.join(folder_name, "manifest.json"), 'w') as fh:
+        fh.write(manifest_json)
+
+    with open(os.path.join(folder_name, "background.js"), 'w') as fh:
+        fh.write(background_js)
+
+
 def get_undetected_chromedriver(
         headless: Optional[bool] = True,
         agent: Optional[str] = None,
@@ -37,6 +97,11 @@ def get_undetected_chromedriver(
         patcher_force_close: Optional[bool] = False,
         version_main: Optional[int] = None,
         is_incognito: Optional[bool] = False,
+
+        auth_required: Optional[bool] = False,
+        proxy: Optional[str] = None,
+        proxy_type: Optional[str] = None,
+        proxy_folder: Optional[str] = None,
 ):
     if agent is None:
         ua = UserAgent(browsers=['chrome'])
@@ -74,14 +139,16 @@ def get_undetected_chromedriver(
 
     if not headless:
         extensions += [WEBRTC, FINGERPRINT, ACTIVE]
-        # options.add_extension(WEBRTC)
-        # options.add_extension(FINGERPRINT)
-        # options.add_extension(ACTIVE)
 
-        # if CUSTOM_EXTENSIONS:
-        #     for extension in CUSTOM_EXTENSIONS:
-        #         options.add_extension(extension)
-
+    if proxy:
+        if auth_required:
+            if not proxy_folder:
+                proxy_folder = os.path.join(cwd, 'extension', f'proxy_auth')
+            create_proxy_folder(proxy, proxy_folder)
+            extensions.append(proxy_folder)
+            # options.add_argument(f"--load-extension={proxy_folder}")
+        else:
+            options.add_argument(f'--proxy-server={proxy_type}://{proxy}')
     if extensions:
         options.add_argument(f"--load-extension={','.join(extensions)}")
 

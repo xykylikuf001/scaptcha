@@ -51,25 +51,31 @@ class Bcolors:
 
 
 def get_driver(
-        driver: Literal["undetected-chrome", "firefox"],
 
         headless: Optional[bool] = True,
         agent: Optional[str] = None,
         viewports: Optional[List[str]] = None,
         options: Optional["UCChromeOptions"] = None,
         driver_executable_path: Optional[str] = None,
-        *args, **kwargs
+
+        auth_required: Optional[bool] = False,
+        proxy: Optional[str] = None,
+        proxy_type: Optional[str] = None,
+        proxy_folder: Optional[str] = None,
+
 ):
-    if driver == "undetected-chrome":
-        return get_undetected_chromedriver(
-            headless=headless,
-            viewports=viewports,
-            agent=agent,
-            driver_executable_path=driver_executable_path,
-            patcher_force_close=True,
-            options=options,
-            *args, **kwargs
-        )
+    return get_undetected_chromedriver(
+        headless=headless,
+        viewports=viewports,
+        agent=agent,
+        driver_executable_path=driver_executable_path,
+        patcher_force_close=True,
+        options=options,
+        proxy=proxy,
+        auth_required=auth_required,
+        proxy_type=proxy_type,
+        proxy_folder=proxy_folder,
+    )
 
 
 def download_driver(
