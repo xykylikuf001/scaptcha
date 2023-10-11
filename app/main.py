@@ -267,7 +267,7 @@ class Helper:
 
 
 def main_runner(
-        helper: Helper,  proxy_type: str, proxy: str, position: int,
+        helper: Helper, position: int, proxy_type: Optional[str] = None, proxy: Optional[str] = None,
         refresh_link: Optional[str] = None
 ):
     driver = None
@@ -280,19 +280,18 @@ def main_runner(
         ua = UserAgent(browsers=['chrome'])
         agent = sorted(ua.data_browsers['chrome'], key=lambda a: grp(CHROME_REGEX, a))[-1]
         helper.checked_proxies[position] = None
+        if settings.PROXY_ENABLED:
+            if settings.PROXY_CATEGORY == 'r' and settings.PROXY_API:
+                for _ in range(20):
+                    proxy = choice(helper.proxies_from_api)
+                    if proxy not in helper.used_proxies:
+                        break
+                helper.used_proxies.append(proxy)
+                helper.status = check_proxy(settings.CATEGORY, agent, proxy, proxy_type)
 
-        if settings.PROXY_CATEGORY == 'r' and settings.PROXY_API:
-            for _ in range(20):
-                proxy = choice(helper.proxies_from_api)
-                if proxy not in helper.used_proxies:
-                    break
-            helper.used_proxies.append(proxy)
-        helper.status = check_proxy(settings.CATEGORY, agent, proxy, proxy_type)
+            if helper.status != 200:
+                raise RequestException(helper.status)
 
-        if helper.status != 200:
-            raise RequestException(helper.status)
-
-        try:
             print(
                 helper.timestamp() + Bcolors.OK_BLUE + f"Worker {position} | " + Bcolors.OK_GREEN +
                 f"{proxy} | {proxy_type.upper()} | Good Proxy | Opening a new driver..." + Bcolors.ENDC
@@ -301,7 +300,8 @@ def main_runner(
             while proxy in helper.bad_proxies:
                 helper.bad_proxies.remove(proxy)
                 sleep(1)
-
+        try:
+            print(patched_drivers, position, helper.threads, helper.exe_name)
             patched_driver = os.path.join(
                 patched_drivers, f'chromedriver_{position % helper.threads}{helper.exe_name}'
             )
@@ -314,7 +314,6 @@ def main_runner(
                     f" {type(e).__name__} | {e.args[0] if e.args else ''}",
                     helper.timestamp() + Bcolors.FAIL
                 )
-
 
             proxy_folder = os.path.join(
                 cwd, 'extension', f'proxy_auth_{position}'
@@ -329,7 +328,7 @@ def main_runner(
 
             print(
                 helper.timestamp() + Bcolors.OK_BLUE + f"Worker {position} | " + Bcolors.OK_GREEN +
-                f"{proxy} | {proxy_type.upper()} | Good Proxy | Creating new driver..." + Bcolors.ENDC
+                f"Creating new driver..." + Bcolors.ENDC
             )
 
             if refresh_link:
@@ -356,8 +355,14 @@ def main_runner(
                 agent=agent,
                 driver_executable_path=patched_driver,
                 patcher_force_close=True,
-                version_main=int(helper.major_version)
+                version_main=int(helper.major_version),
+
+                auth_required=settings.PROXY_AUTH_REQUIRED,
+                proxy=proxy,
+                proxy_type=proxy_type,
+                proxy_folder=proxy_folder,
             )
+            helper.driver_dict[driver] = proxy_folder
 
             driver.get(settings.PAGE_URL)
 
@@ -379,10 +384,11 @@ def main_runner(
                 helper.timestamp() + Bcolors.FAIL
             )
     except RequestException:
-        print(helper.timestamp() + Bcolors.OK_BLUE + f"Worker {position} | " +
-              Bcolors.FAIL + f"{proxy} | {proxy_type.upper()} | Bad proxy " + Bcolors.ENDC)
-        helper.checked_proxies[position] = proxy_type
-        helper.bad_proxies.append(proxy)
+        if settings.PROXY_ENABLED:
+            print(helper.timestamp() + Bcolors.OK_BLUE + f"Worker {position} | " +
+                  Bcolors.FAIL + f"{proxy} | {proxy_type.upper()} | Bad proxy " + Bcolors.ENDC)
+            helper.checked_proxies[position] = proxy_type
+            helper.bad_proxies.append(proxy)
 
     except Exception as e:
         print(
@@ -391,8 +397,10 @@ def main_runner(
         )
 
 
-def prepare_run(helper: Helper):
+def prepare_run(helper: Helper, position: int):
     try:
+        if not settings.PROXY_ENABLED:
+            main_runner(helper, position=position)
         sleep(2)
         proxy = choice(helper.proxy_list)
         proxy_index = helper.proxy_list.index(proxy)
@@ -407,15 +415,15 @@ def prepare_run(helper: Helper):
                 splitted_proxy_type = splitted[-1]
             if not proxy_type:
                 proxy_type = splitted_proxy_type
-            main_runner(helper, proxy_type, splitted[0], proxy_index, refresh_link)
+            main_runner(helper,position, proxy_type, splitted[0], refresh_link)
         elif proxy_type:
-            main_runner(helper, proxy_type, proxy, proxy_index)
+            main_runner(helper, position, proxy_type, proxy)
         else:
-            main_runner(helper, 'http', proxy, proxy_index)
+            main_runner(helper, position, 'http', proxy, )
             if helper.checked_proxies[proxy_index] == 'http':
-                main_runner(helper, 'socks4', proxy, proxy_index)
+                main_runner(helper, position, 'socks4', proxy)
             if helper.checked_proxies[proxy_index] == 'socks4':
-                main_runner(helper, 'socks5', proxy, proxy_index)
+                main_runner(helper, position,'socks5', proxy)
 
     except Exception as e:
         print(
@@ -460,7 +468,7 @@ def run(helper: Helper):
 
     with ThreadPoolExecutor(max_workers=helper.threads) as executor:
         futures = [
-            executor.submit(main_runner, helper, position)
+            executor.submit(prepare_run, helper, position)
             for position in range(helper.threads)
         ]
 
@@ -499,7 +507,7 @@ def run(helper: Helper):
 def main():
     osname, exe_name, major_version = download_driver(patched_drivers=patched_drivers)
 
-    if settings.PROXY_AUTH_REQUIRED and settings.HEADLESS:
+    if settings.PROXY_ENABLED and settings.PROXY_AUTH_REQUIRED and settings.HEADLESS:
         print_colored(
             "Premium proxy needs extension to work. Chrome doesn't support extension in Headless mode.",
             Bcolors.FAIL,

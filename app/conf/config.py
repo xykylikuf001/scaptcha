@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     PAGE_URL: Optional[str] = "https://online.warrington.gov.uk/planning/index.html?fa=getApplication&id=211349"
 
     HEADLESS: Optional[bool] = False
+    PROXY_ENABLED: Optional[bool] = False
     PROXY_AUTH_REQUIRED: Optional[bool] = False
     PROXY_FILENAME: Optional[str] = "files/proxy.txt"
     PROXY_CATEGORY: Optional[str] = 'r'
@@ -20,8 +21,8 @@ class Settings(BaseSettings):
 
     TWO_CAPTCHA_API_KEY: str
 
-    MIN_THREADS: Optional[str] = 1
-    MAX_THREADS: Optional[str] = 1
+    MIN_THREADS: Optional[int] = 1
+    MAX_THREADS: Optional[int] = 1
 
     model_config = SettingsConfigDict(
         case_sensitive=True,
