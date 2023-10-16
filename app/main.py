@@ -357,10 +357,10 @@ def main_runner(
                 patcher_force_close=True,
                 version_main=int(helper.major_version),
 
-                auth_required=settings.PROXY_AUTH_REQUIRED,
-                proxy=proxy,
-                proxy_type=proxy_type,
-                proxy_folder=proxy_folder,
+                # auth_required=settings.PROXY_AUTH_REQUIRED,
+                # proxy=proxy,
+                # proxy_type=proxyxy_type,
+                # proxy_folder=proxy_folder,
             )
             helper.driver_dict[driver] = proxy_folder
 
