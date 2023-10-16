@@ -132,9 +132,9 @@ def get_undetected_chromedriver(
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-features=UserAgentClientHint')
     options.add_argument("--disable-web-security")
-    DesiredCapabilities.CHROME['loggingPrefs'] = {
-        'driver': 'OFF', 'server': 'OFF', 'browser': 'OFF'
-    }
+    # DesiredCapabilities.CHROME['loggingPrefs'] = {
+    #     'driver': 'OFF', 'server': 'OFF', 'browser': 'OFF'
+    # }
     extensions = []
 
     if not headless:
