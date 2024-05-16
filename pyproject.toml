@@ -5,7 +5,7 @@ requires = ["poetry-core"]
 [tool.poetry]
 authors = ["Your name <you@example.com>"]
 description = ""
-name = "scaptcha"
+name = "app"
 readme = "README.md"
 version = "0.1.0"
 

@@ -9,7 +9,6 @@ import json
 from typing import Optional, List
 from time import sleep
 from requests.exceptions import RequestException
-from urllib.parse import urlparse, parse_qs
 
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -18,9 +17,6 @@ from fake_useragent import UserAgent
 from undetected_chromedriver import Patcher
 from loguru import logger
 from twocaptcha import TwoCaptcha
-
-from selenium.webdriver.support.ui import WebDriverWait  # To wait
-from selenium.webdriver.support import expected_conditions as EC  # To wait
 from selenium.webdriver.common.by import By  # To find the elements
 
 from app import Bcolors, input_colored, print_colored
@@ -47,28 +43,24 @@ def solve_2_captcha(driver):
     sleep(2)
     driver.find_element(By.ID, "amzn-captcha-verify-button").click()
     goku_props = driver.execute_script("return window.gokuProps ")
-    print(goku_props, type(goku_props))
 
     solver = TwoCaptcha(settings.TWO_CAPTCHA_API_KEY)
     script_elements = driver.find_elements(By.XPATH, '//script')
     while True:
-
         result = solver.amazon_waf(
+            url=settings.PAGE_URL,
             sitekey=goku_props.get("key"),
             iv=goku_props.get('iv'),
             context=goku_props.get('context'),
-            url=settings.PAGE_URL,
             challenge_script=script_elements[1].get_attribute('src'),
             captcha_script=script_elements[2].get_attribute('src'),
         )
-        print(result, type(result))
 
         if result in ['CAPCHA_NOT_READY', "ERROR_NO_SLOT_AVAILABLE"]:
             sleep(5)
             continue
         elif isinstance(result, dict):
             result = result.get('code')
-            print(result, type(result))
             my_dict = json.loads(result)
 
             o = open(f'{cwd}/static/validate.js', 'r')
@@ -77,7 +69,6 @@ def solve_2_captcha(driver):
             driver.set_script_timeout(120)
             sleep(1)
             # driver.find_element(By.ID, "amzn-btn-verify-internal").click()
-
             break
         else:
             raise Exception(f'TwoCaptcha response error: {result}')

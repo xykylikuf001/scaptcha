@@ -1,2 +1,1 @@
-# mega_bot
 # scaptcha
