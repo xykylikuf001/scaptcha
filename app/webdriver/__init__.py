@@ -4,7 +4,9 @@ import subprocess
 import shutil
 import sys
 import zipfile
+from pprint import pprint
 
+import requests
 from typing import Literal, Optional, Tuple, List, TYPE_CHECKING
 from urllib.request import urlretrieve, urlopen
 from packaging.version import Version
@@ -32,10 +34,7 @@ CHROME = [
 CHROME_DRIVER_URL_REPO = "https://chromedriver.storage.googleapis.com"
 CHROME_LABS_URL_REPO = "https://googlechromelabs.github.io/chrome-for-testing"
 
-# https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/116.0.5845.96/linux64/chromedriver-linux64.zip
-# https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/116.0.5845.96/mac-x64/chromedriver-mac-x64.zip
-# https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/116.0.5845.96/win64/chromedriver-win64.zip
-CHROME_EDGE_URL_REPO = "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing"
+CHROME_LATEST_JSON_DOWNLOADS = "https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json"
 
 
 class Bcolors:
@@ -94,11 +93,9 @@ def __download_chrome_driver(
     if repo == 'chrome_driver':
         repo_url = CHROME_DRIVER_URL_REPO
         zip_name = 'chromedriver_%s.zip'
-
     else:
-        zip_name = 'chromedriver-%s.zip'
-
         repo_url = CHROME_LABS_URL_REPO
+        zip_name = 'chromedriver-%s.zip'
     print(Bcolors.WARNING + 'Getting Chrome Driver...' + Bcolors.ENDC)
 
     if osname == 'Linux':
@@ -110,7 +107,9 @@ def __download_chrome_driver(
         osname = 'mac'
         exe_name = ""
         process = subprocess.Popen(
-            ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--version'], stdout=subprocess.PIPE)
+            ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--version'],
+            stdout=subprocess.PIPE
+        )
         version = process.communicate()[0].decode('UTF-8').replace('Google Chrome', '').strip()
     elif osname == 'Windows':
         osname = 'win'
@@ -151,7 +150,6 @@ def __download_chrome_driver(
     else:
         input('{} OS is not supported.'.format(osname))
         sys.exit()
-
     try:
         with open('version.txt', 'r') as f:
             previous_version = f.read()
@@ -199,15 +197,22 @@ def __download_chrome_driver(
                     platform_category = "mac-x64"
                 else:
                     platform_category = "mac-arm64"
-
         else:
             raise Exception("Unsupported system os")
         zip_name %= platform_category
+        response = requests.get(CHROME_LATEST_JSON_DOWNLOADS)
+        if response.status_code != 200:
+            raise Exception("Can not fetch latest versions per milestone with downloads json data")
+        data = response.json()
+        chromedrivers = data['milestones'][major_version]["downloads"]["chromedriver"]
+        u = None
+        for chromedriver in chromedrivers:
+            if chromedriver['platform'] == platform_category:
+                u = chromedriver["url"]
+        if u is None:
+            raise Exception(f"Can not find chrome driver url for your OS {platform_category}")
 
-        if repo == "chrome_driver":
-            u = "%s/%s/%s" % (CHROME_DRIVER_URL_REPO, version_full.base_version, zip_name)
-        else:
-            u = "%s/%s/%s/%s" % (CHROME_EDGE_URL_REPO, version_full.base_version, platform_category, zip_name)
+        print(version_full.base_version, platform_category, zip_name, major_version)
         print(Bcolors.OK_CYAN + f'Chrome downloading version: {version_full.base_version}' + Bcolors.ENDC)
         print(Bcolors.OK_CYAN + f'Chrome driver url: {u}' + Bcolors.ENDC)
 

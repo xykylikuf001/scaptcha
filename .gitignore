@@ -26,6 +26,7 @@ config.json
 files/card.*
 files/cards.json
 files/data.*
+files/proxy.txt
 .hosts
 # scripts - temp
 restart-systemd-services.sh

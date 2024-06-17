@@ -3,7 +3,6 @@ import re
 
 from typing import Optional, List
 from random import choice
-from selenium.webdriver import DesiredCapabilities
 from undetected_chromedriver import Chrome, ChromeOptions
 from fake_useragent import UserAgent
 from glob import glob

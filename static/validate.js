@@ -1,13 +1,13 @@
 const form_div = document.querySelector("form")
-
+console.log(arguments)
 const c = document.createElement('div')
 c.classList = "twocaptcha-amazon_waf-helper"
 const input1 = document.createElement("input");
-input1.type = "hidden";
+input1.type = "text";
 input1.name = "amazon_waf_captcha_voucher";
 input1.value = arguments[0]
 const input2 = document.createElement("input");
-input2.type = "hidden";
+input2.type = "text";
 input2.name = "amazon_waf_existing_token";
 input2.value = arguments[1]
 
@@ -34,14 +34,17 @@ function hasCaptchaVoucher() {
     return !!(captchaVoucherInput && captchaVoucherInput.value);
 }
 AwsWafIntegration.hasToken = hasCaptchaVoucher;
-awsWafIntegration.getToken = initialize;
+AwsWafIntegration.getToken = initialize;
 
 
-awsWafIntegration.submitCaptcha = function () {
+AwsWafIntegration.submitCaptcha = function () {
     if (hasCaptchaVoucher()) {
-        challengeScript.submitCaptcha(document.querySelector('input[name=amazon_waf_captcha_voucher]').value);
+        ChallengeScript.submitCaptcha(document.querySelector('input[name=amazon_waf_captcha_voucher]').value);
     }
 };
 
+if (window.ChallengeScript !== undefined) {
+    AwsWafIntegration.submitCaptcha();
+}
 
 // Rest of the code related to obfuscated parts remains unchanged

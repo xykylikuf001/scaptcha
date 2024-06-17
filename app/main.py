@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 from random import randint, choice
 
 import psutil
@@ -17,7 +18,10 @@ from fake_useragent import UserAgent
 from undetected_chromedriver import Patcher
 from loguru import logger
 from twocaptcha import TwoCaptcha
+
+from selenium.webdriver.support import expected_conditions as EC  # To wait
 from selenium.webdriver.common.by import By  # To find the elements
+from selenium.webdriver.support.ui import WebDriverWait  # To wait
 
 from app import Bcolors, input_colored, print_colored
 from app.conf.config import settings
@@ -26,7 +30,6 @@ from .webdriver.undetected_chromedriver import (get_undetected_chromedriver, grp
 from .proxies import get_proxy_list, scrape_api, check_proxy
 
 logger.remove(0)
-logger.add("loguru.log")
 
 CHROME_REGEX = r'Chrome/[^ ]+'
 
@@ -39,39 +42,92 @@ viewports = [
 ]
 
 
-def solve_2_captcha(driver):
-    sleep(2)
-    driver.find_element(By.ID, "amzn-captcha-verify-button").click()
+def get_captcha_token(driver):
+    count = 0
     goku_props = driver.execute_script("return window.gokuProps ")
 
     solver = TwoCaptcha(settings.TWO_CAPTCHA_API_KEY)
     script_elements = driver.find_elements(By.XPATH, '//script')
-    while True:
-        result = solver.amazon_waf(
-            url=settings.PAGE_URL,
-            sitekey=goku_props.get("key"),
-            iv=goku_props.get('iv'),
-            context=goku_props.get('context'),
-            challenge_script=script_elements[1].get_attribute('src'),
-            captcha_script=script_elements[2].get_attribute('src'),
-        )
+    result = None
+    while count < 4:
+        try:
+            result = solver.amazon_waf(
+                url=settings.PAGE_URL,
+                sitekey=goku_props.get("key"),
+                iv=goku_props.get('iv'),
+                context=goku_props.get('context'),
+                challenge_script=script_elements[1].get_attribute('src'),
+                captcha_script=script_elements[2].get_attribute('src'),
+            )
+        except Exception as e:
+            if count ==3:
+                raise e
+            else:
+                print(
+                    Bcolors.FAIL +
+                    f"Line : {e.__traceback__.tb_lineno} | {type(e).__name__} | {e.args[0] if e.args else ''}" + Bcolors.ENDC
+                )
+            count += 1
+        else:
+            break
 
+    return result
+
+
+def solve_2_captcha(driver):
+    print_colored("Starting solve with 2captcha", Bcolors.OK_BLUE)
+    refreshed_count = 0
+    # Get the title of the webpage
+    title = driver.title
+    is_captcha_page_title = title == "Human Verification"
+    print_colored(f"Current title is {driver.title}", Bcolors.OK_BLUE)
+
+    while is_captcha_page_title and refreshed_count < 5:
+        try:
+            print_colored("Clicking verify button", Bcolors.BOLD)
+            WebDriverWait(driver, 1).until(
+                EC.element_to_be_clickable((By.ID, "amzn-captcha-verify-button"))
+            ).click()
+            print_colored("Clicked verify button", Bcolors.BOLD)
+        except:
+            print_colored(f"Verify button not exist", Bcolors.BOLD)
+
+        result = get_captcha_token(driver)
+        print_colored(f"2Captcha response result", Bcolors.BOLD)
+        pprint(result)
         if result in ['CAPCHA_NOT_READY', "ERROR_NO_SLOT_AVAILABLE"]:
-            sleep(5)
-            continue
+            pass
         elif isinstance(result, dict):
             result = result.get('code')
             my_dict = json.loads(result)
-
             o = open(f'{cwd}/static/validate.js', 'r')
             body = o.read()
             driver.execute_script(body, my_dict.get('captcha_voucher'), my_dict.get("existing_token"))
-            driver.set_script_timeout(120)
-            sleep(1)
+            driver.set_script_timeout(15)
+            # sleep(1)
             # driver.find_element(By.ID, "amzn-btn-verify-internal").click()
-            break
+            sleep(2)
         else:
             raise Exception(f'TwoCaptcha response error: {result}')
+        if driver.title != "Human Verification":
+            break
+        try:
+            options_locator = (By.XPATH, f"//p[contains(text(),'Time limit exceeded. Please refresh the page.')]")
+            WebDriverWait(driver, 1).until(
+                EC.presence_of_element_located(options_locator)
+            )
+            need_refresh = True
+        except:
+            need_refresh = False
+        if need_refresh:
+            driver.refresh()
+            try:
+                WebDriverWait(driver, 15).until(
+                    EC.element_to_be_clickable((By.ID, "amzn-captcha-verify-button"))
+                )
+            except:
+                pass
+        refreshed_count += 1
 
 
 class Helper:
@@ -258,7 +314,9 @@ class Helper:
 
 
 def main_runner(
-        helper: Helper, position: int, proxy_type: Optional[str] = None, proxy: Optional[str] = None,
+        helper: Helper, position: int,
+        proxy_type: Optional[str] = None,
+        proxy: Optional[str] = None,
         refresh_link: Optional[str] = None
 ):
     driver = None
@@ -360,7 +418,7 @@ def main_runner(
             driver.maximize_window()
 
             solve_2_captcha(driver=driver)
-            sleep(15)
+            sleep(60)
             helper.quit_driver(driver=driver, data_dir=data_dir)
 
             if helper.cancel_all:
@@ -370,6 +428,7 @@ def main_runner(
             logger.add('exp.log')
             logger.exception('Something went wrong')
             helper.quit_driver(driver=driver, data_dir=data_dir)
+            # print(e)
             print_colored(
                 f"Worker {position} | Line : {e.__traceback__.tb_lineno} | {type(e).__name__} | {e.args[0] if e.args else ''}",
                 helper.timestamp() + Bcolors.FAIL
@@ -382,6 +441,7 @@ def main_runner(
             helper.bad_proxies.append(proxy)
 
     except Exception as e:
+        # print(e)
         print(
             helper.timestamp() + Bcolors.FAIL +
             f"Worker {position} | Line : {e.__traceback__.tb_lineno} | {type(e).__name__} | {e.args[0] if e.args else ''}" + Bcolors.ENDC
@@ -392,31 +452,32 @@ def prepare_run(helper: Helper, position: int):
     try:
         if not settings.PROXY_ENABLED:
             main_runner(helper, position=position)
-        sleep(2)
-        proxy = choice(helper.proxy_list)
-        proxy_index = helper.proxy_list.index(proxy)
-        proxy_type = settings.PROXY_TYPE
-        refresh_link = None
-        if '|' in proxy:
-            splitted = proxy.split('|')
-            if 'http://' in splitted[-1] or 'https://' in splitted[-1]:
-                splitted_proxy_type = splitted[-2]
-                refresh_link = splitted[-1]
-            else:
-                splitted_proxy_type = splitted[-1]
-            if not proxy_type:
-                proxy_type = splitted_proxy_type
-            main_runner(helper,position, proxy_type, splitted[0], refresh_link)
-        elif proxy_type:
-            main_runner(helper, position, proxy_type, proxy)
         else:
-            main_runner(helper, position, 'http', proxy, )
-            if helper.checked_proxies[proxy_index] == 'http':
-                main_runner(helper, position, 'socks4', proxy)
-            if helper.checked_proxies[proxy_index] == 'socks4':
-                main_runner(helper, position,'socks5', proxy)
+            proxy = choice(helper.proxy_list)
+            proxy_index = helper.proxy_list.index(proxy)
+            proxy_type = settings.PROXY_TYPE
+            refresh_link = None
+            if '|' in proxy:
+                splitted = proxy.split('|')
+                if 'http://' in splitted[-1] or 'https://' in splitted[-1]:
+                    splitted_proxy_type = splitted[-2]
+                    refresh_link = splitted[-1]
+                else:
+                    splitted_proxy_type = splitted[-1]
+                if not proxy_type:
+                    proxy_type = splitted_proxy_type
+                main_runner(helper, position, proxy_type, splitted[0], refresh_link)
+            elif proxy_type:
+                main_runner(helper, position, proxy_type, proxy)
+            else:
+                main_runner(helper, position, 'http', proxy, )
+                if helper.checked_proxies[proxy_index] == 'http':
+                    main_runner(helper, position, 'socks4', proxy)
+                if helper.checked_proxies[proxy_index] == 'socks4':
+                    main_runner(helper, position, 'socks5', proxy)
 
     except Exception as e:
+        # print(e)
         print(
             helper.timestamp() + Bcolors.FAIL +
             f"Line :{e.__traceback__.tb_lineno} | {type(e).__name__} | {e.args[0] if e.args else ''}" + Bcolors.ENDC
@@ -489,6 +550,7 @@ def run(helper: Helper):
             helper.cancel_pending_task(not_done=not_done)
             raise KeyboardInterrupt
         except Exception as e:
+            # print(e)
             print(
                 helper.timestamp() + Bcolors.FAIL +
                 f"Line :{e.__traceback__.tb_lineno} | {type(e).__name__} | {e.args[0] if e.args else ''}" + Bcolors.ENDC
